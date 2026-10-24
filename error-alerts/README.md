@@ -98,7 +98,7 @@ Execution URL: https://your-n8n.example.com/workflow/AbC123/executions/231
 - If SMTP is down, no email can arrive; the failed run stays visible in the
   execution list of this workflow.
 - Trigger/activation errors are formatted, but were not reproduced in the
-  author's tests (see the test report).
+  author's tests.
 
 ## Customising
 

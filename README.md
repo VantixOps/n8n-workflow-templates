@@ -4,8 +4,8 @@ Ready-to-import n8n workflows we built, tested and use as building blocks. Free 
 
 | Template | What it does | Nodes |
 |---|---|---|
-| [MCP server inspection](mcp-server-inspection/) | Connects to any Streamable HTTP MCP server, tests every tool against its own schema and the MCP spec, and grades it A–F with a concrete fix per failure. Built-in demo server included. | 30 |
-| [Deduplicated error alerts](error-alerts/) | Error workflow that sends one clear email per problem, holds back repeats during a cooldown and still alerts if the alert itself fails. | 15 |
+| [MCP server inspection](mcp-server-inspection/) | Connects to a Streamable HTTP MCP server, tests its tools (up to `maxTools`, default 25) against their own schema and the MCP spec, and grades them A–F with a concrete fix per failure. Built-in demo server included. | 30 |
+| [Deduplicated error alerts](error-alerts/) | Error workflow that sends one clear email per problem, holds back repeats during a cooldown and, if the alert email itself fails, marks the run as failed and lets the next error try again. | 15 |
 | [Uptime monitor](uptime-monitor/) | Checks your URLs on a schedule, confirms an outage before alerting, reminds while it lasts and sends an all-clear when it is back. | 11 |
 
 ## How to use
@@ -14,7 +14,7 @@ Ready-to-import n8n workflows we built, tested and use as building blocks. Free 
 2. In n8n: *Workflows > Import from file*.
 3. Follow the template's README – each one lists the credentials and settings it needs.
 
-None of the files contain credentials, API keys or personal data. Example addresses use `example.com`.
+None of the files contain credentials, API keys or personal data. Example addresses use reserved example domains.
 
 ## Also from us
 

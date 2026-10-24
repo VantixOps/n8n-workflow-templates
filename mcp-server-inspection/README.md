@@ -1,6 +1,6 @@
 # Grade MCP server tools with live contract tests (n8n)
 
-An n8n workflow that inspects an MCP server the way a real client would and grades every tool A–F – before an AI agent finds out the hard way that a tool is broken.
+An n8n workflow that inspects an MCP server the way a real client would and grades its tools A–F – before an AI agent finds out the hard way that a tool is broken.
 
 Works for MCP servers built with n8n's **MCP Server Trigger** and for any other **Streamable HTTP** MCP server.
 
@@ -12,6 +12,11 @@ Works for MCP servers built with n8n's **MCP Server Trigger** and for any other 
 4. Shows a report page: a grade per tool and for the server, what was sent, what came back and a concrete fix for every failure. What it cannot decide is marked as *not graded* instead of guessed.
 
 A built-in demo server (one careful tool, one deliberately broken tool) shows a full report without any setup.
+
+## Limits
+
+- Reads the first page of the server's tool list and inspects at most `maxTools` tools (default 25).
+- Which tools are called depends on their tool hints and the tool mode you choose; anything that cannot be decided reliably is shown as *not graded*.
 
 ## Safe by default
 
