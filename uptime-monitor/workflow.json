@@ -1,0 +1,328 @@
+{
+  "name": "Monitor website uptime with confirmed outage and recovery emails",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Monitor website uptime with confirmed outage and recovery emails\n\n## Monitor websites and APIs with confirmed outage and recovery alerts\n\n**Who's it for:** small teams and freelancers who want a simple, self-hosted uptime check for websites, APIs and health endpoints without false alarms from single network blips.\n\n**How it works**\n1. Every 5 minutes the schedule starts a check of each target listed in **Settings**.\n2. Each target is requested with a timeout. It counts as up for HTTP 2xx/3xx and, if you set one, when the expected keyword is in the response.\n3. Per-target state is kept between runs. An outage is only reported after the configured number of failed checks in a row (default 2), so a single blip stays quiet.\n4. While a target stays down you get a reminder at a fixed interval, and one recovery email when it is back.\n5. HTTP 429 is reported as rate limiting, and the monitor never retries in a loop.\n\n**How to set up**\n1. Add an SMTP credential to **Send alert email**.\n2. In **Settings**, set recipient, sender and your list of targets (name, URL, optional keyword).\n3. Activate the workflow. State is only stored for active (production) runs.\n\n**Requirements:** an SMTP account. Targets must be reachable from your n8n instance.\n\n**How to customize:** change the interval in the schedule, the confirmation count or reminder interval in Settings, or send alerts to chat instead of email.",
+        "height": 980,
+        "width": 560
+      },
+      "id": "bb5a7ea8-978b-5650-9992-07848fd1cab8",
+      "name": "About this template",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Configure\nList your targets in **Settings** as JSON: `name`, `url`, optional `expectedKeyword`.",
+        "height": 400,
+        "width": 700,
+        "color": 7
+      },
+      "id": "37a18807-d8ab-5110-952b-ad8b88d93f48",
+      "name": "Section configure",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Check every target\nTimeouts and HTTP errors become a 'down' result instead of stopping the run. No retries.",
+        "height": 400,
+        "width": 480,
+        "color": 7
+      },
+      "id": "691c4191-81ea-5af8-a436-04a6fca20ac4",
+      "name": "Section check",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Decide and notify\nState is kept between active runs. Only confirmed outages, reminders and recoveries are emailed.",
+        "height": 400,
+        "width": 700,
+        "color": 7
+      },
+      "id": "769ecb28-2645-5c2e-9505-31cb78d764a4",
+      "name": "Section decide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        980,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "1ece300a-7481-5b36-bb11-3fe45910716c",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -200,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "be4be70d-4e7b-5e58-b63e-c3f8f1e9ea98",
+              "name": "alertTo",
+              "value": "you@example.com",
+              "type": "string"
+            },
+            {
+              "id": "54d0f989-4034-5b2d-92a9-d345628c5b25",
+              "name": "alertFrom",
+              "value": "Uptime monitor <monitor@example.com>",
+              "type": "string"
+            },
+            {
+              "id": "a0fad14e-0906-5252-b776-5f9cbe160c6f",
+              "name": "failuresBeforeAlert",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "51f4dfff-2d42-537a-a895-a3a269b7fae3",
+              "name": "reminderMinutes",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "f9f41e90-93d8-5234-8d9c-2971a0f5ce92",
+              "name": "timeoutSeconds",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "acef4917-81d9-51d2-a605-1a80c12d83c7",
+              "name": "targets",
+              "value": "[\n  {\n    \"name\": \"Example website\",\n    \"url\": \"https://example.com/\",\n    \"expectedKeyword\": \"Example Domain\"\n  }\n]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0087699a-dedb-58ab-b3fd-c2ef06afdd0e",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        20,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "targets",
+        "options": {}
+      },
+      "id": "59413028-a113-589e-9698-256a122da8aa",
+      "name": "Split targets",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        240,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-uptime-monitor"
+            }
+          ]
+        },
+        "options": {
+          "timeout": "={{ Math.max(1, Number($('Settings').first().json.timeoutSeconds) || 10) * 1000 }}",
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "c6a26c21-f526-5ed3-8066-537c72c40133",
+      "name": "Check target",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        20
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Evaluates every check, keeps per-target state between runs and decides what\n// to report. Always returns exactly one item, so a run never ends silently.\nconst settings = $('Settings').first().json;\nconst targets = $('Split targets').all().map((item) => item.json);\nconst checks = $input.all();\n\nconst positiveInt = (value, fallback) => {\n  const n = Number(value);\n  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;\n};\nconst failuresBeforeAlert = Math.max(1, positiveInt(settings.failuresBeforeAlert, 2));\nconst reminderMs = positiveInt(settings.reminderMinutes, 60) * 60 * 1000;\n\nconst state = $getWorkflowStaticData('global');\nif (!state.targets || typeof state.targets !== 'object' || Array.isArray(state.targets)) state.targets = {};\nconst now = Date.now();\n\nconst results = checks.map((check, index) => {\n  const paired = check.pairedItem;\n  const targetIndex = Array.isArray(paired) ? paired[0]?.item : paired?.item;\n  const target = targets[Number.isInteger(targetIndex) ? targetIndex : index] || {};\n  const name = String(target.name || target.url || 'Target ' + (index + 1));\n  const url = String(target.url || '');\n  const keyword = String(target.expectedKeyword || '');\n  const json = check.json || {};\n  let up = false;\n  let detail = '';\n  if (!/^https?:\\/\\/\\S+$/i.test(url)) {\n    detail = 'Invalid URL in Settings';\n  } else if (json.error) {\n    const msg = typeof json.error === 'string' ? json.error : (json.error.message || 'Request failed');\n    detail = 'No response: ' + String(msg).slice(0, 200);\n  } else {\n    const status = Number(json.statusCode);\n    const body = typeof json.data === 'string' ? json.data : JSON.stringify(json.data ?? '');\n    if (status === 429) detail = 'HTTP 429 - the target is rate limiting the monitor';\n    else if (!(status >= 200 && status < 400)) detail = 'HTTP ' + (Number.isFinite(status) ? status : 'unknown');\n    else if (keyword && !body.includes(keyword)) detail = 'HTTP ' + status + ' but keyword \"' + keyword + '\" not found';\n    else { up = true; detail = 'HTTP ' + status; }\n  }\n  return { key: name + ' ' + url, name, url, up, detail };\n});\n\nconst events = [];\nconst seen = new Set();\nfor (const r of results) {\n  seen.add(r.key);\n  const s = state.targets[r.key] && typeof state.targets[r.key] === 'object' ? state.targets[r.key] : { failures: 0, alerted: false, lastAlertAt: 0 };\n  if (r.up) {\n    if (s.alerted) events.push({ type: 'RECOVERED', r });\n    state.targets[r.key] = { failures: 0, alerted: false, lastAlertAt: 0 };\n    continue;\n  }\n  const failures = (Number(s.failures) || 0) + 1;\n  let alerted = s.alerted === true;\n  let lastAlertAt = Number(s.lastAlertAt) || 0;\n  if (!alerted && failures >= failuresBeforeAlert) {\n    events.push({ type: 'DOWN', r });\n    alerted = true;\n    lastAlertAt = now;\n  } else if (alerted && reminderMs > 0 && now - lastAlertAt >= reminderMs) {\n    events.push({ type: 'STILL DOWN', r });\n    lastAlertAt = now;\n  }\n  state.targets[r.key] = { failures, alerted, lastAlertAt };\n}\nfor (const key of Object.keys(state.targets)) if (!seen.has(key)) delete state.targets[key];\n\nconst escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst down = events.filter((e) => e.type !== 'RECOVERED').length;\nconst recovered = events.length - down;\nconst parts = [];\nif (down) parts.push(down + ' down');\nif (recovered) parts.push(recovered + ' recovered');\nconst subject = parts.length ? ('Uptime: ' + parts.join(', ') + ' - ' + events.map((e) => e.r.name).join(', ')).replace(/[\\r\\n]+/g, ' ').slice(0, 180) : '';\nconst html = '<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1f2328;max-width:640px;width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word;\"><table role=\"presentation\" style=\"width:100%;table-layout:fixed;border-collapse:collapse\">'\n  + events.map((e) => '<tr><td style=\"width:22%;padding:4px 12px 4px 0;vertical-align:top;font-weight:bold;overflow-wrap:anywhere;word-break:break-word;color:' + (e.type === 'RECOVERED' ? '#1a7f37' : '#cf222e') + '\">' + e.type + '</td><td style=\"width:38%;padding:4px 12px 4px 0;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;\">' + escapeHtml(e.r.name) + '<br><span style=\"color:#57606a;font-size:12px\">' + escapeHtml(e.r.url) + '</span></td><td style=\"padding:4px 0;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;\">' + escapeHtml(e.r.detail) + '</td></tr>').join('')\n  + '</table><p style=\"color:#57606a;font-size:12px\">Checked ' + results.length + ' target(s) at ' + new Date(now).toISOString() + ' (UTC). An outage is reported after ' + failuresBeforeAlert + ' failed check(s) in a row.</p></div>';\nconst text = events.map((e) => e.type + ': ' + e.r.name + ' (' + e.r.url + ') - ' + e.r.detail).join('\\n');\n\nreturn [{ json: { alertNeeded: events.length > 0, subject, html, text, checked: results.length, up: results.filter((r) => r.up).length, results } }];\n"
+      },
+      "id": "cbdd6743-b1ec-5498-b306-c50ac25072a7",
+      "name": "Evaluate checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "90bf739e-0b50-5b00-923c-104311320342",
+              "leftValue": "={{ $json.alertNeeded === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dfa2beed-5cd7-5cca-a960-e80fd3551d81",
+      "name": "Anything to report?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1260,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.alertFrom }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "387144b9-ec18-536f-8447-aee412c1b073",
+      "name": "Send alert email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1480,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Split targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split targets": {
+      "main": [
+        [
+          {
+            "node": "Check target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check target": {
+      "main": [
+        [
+          {
+            "node": "Evaluate checks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate checks": {
+      "main": [
+        [
+          {
+            "node": "Anything to report?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to report?": {
+      "main": [
+        [
+          {
+            "node": "Send alert email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

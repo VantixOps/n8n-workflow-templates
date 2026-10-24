@@ -1,0 +1,389 @@
+{
+  "name": "Send deduplicated n8n error alerts by email with cooldown and fallback",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Send deduplicated n8n error alerts by email with cooldown and fallback\n\n## Get one clear email per n8n error, not fifty\n\n**Who's it for:** anyone running n8n workflows unattended who wants to know when something breaks, without an inbox full of identical alerts during a longer outage.\n\n**How it works**\n1. Any workflow that uses this one as its *Error workflow* sends its failure here.\n2. The error is reduced to a fingerprint (workflow, node, error type, message pattern).\n3. The first occurrence is emailed immediately. Repeats of the same fingerprint are held back for a cooldown window; the next email tells you how many were held back.\n4. If the alert text cannot be built (for example because code execution is unavailable), a plain fallback email is sent built only from expressions.\n5. If the email itself fails, the cooldown is released so the next error is not swallowed, and the run is marked as failed.\n\n**How to set up**\n1. Add an SMTP credential to both email nodes.\n2. Fill in recipient, sender and cooldown in **Settings**.\n3. Activate this workflow, then open each workflow you want to watch: *Settings > Error workflow* > select this one.\n\n**Requirements:** an SMTP account. No other services.\n\n**How to customize:** change the cooldown, or replace the email nodes with Slack, Teams or Telegram nodes using the same subject and text fields.",
+        "height": 1020,
+        "width": 560
+      },
+      "id": "00897691-f6d4-5212-99c2-125ea20a166e",
+      "name": "About this template",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Receive the error\nEdit recipient, sender and cooldown in **Settings**.",
+        "height": 400,
+        "width": 480,
+        "color": 7
+      },
+      "id": "fe13a5a8-86d4-52b5-bbf3-1870f6ff91f4",
+      "name": "Section collect",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Build alert and deduplicate\nIdentical errors are sent once per cooldown window.",
+        "height": 400,
+        "width": 480,
+        "color": 7
+      },
+      "id": "7c2b8908-9682-567d-9553-030124f4ee3b",
+      "name": "Section dedupe",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Deliver\nIf sending fails, the cooldown is released and the run is marked as failed.",
+        "height": 420,
+        "width": 940,
+        "color": 7
+      },
+      "id": "f575f69d-22b2-54fc-9a64-8149c649ce6b",
+      "name": "Section deliver",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Fallback\nUsed when the alert text could not be built. Expressions only, no code.",
+        "height": 300,
+        "width": 480,
+        "color": 7
+      },
+      "id": "39b70ccd-45f7-5b14-bf23-2b088e4e08ea",
+      "name": "Section fallback",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        140
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7b7b521b-1d32-5dc9-b6b5-7cbc2dd4eb59",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a3635376-7567-5444-84b2-368add7d199c",
+              "name": "alertTo",
+              "value": "you@example.com",
+              "type": "string"
+            },
+            {
+              "id": "034ec293-a512-5253-8fd9-d7dffde911ba",
+              "name": "alertFrom",
+              "value": "n8n alerts <alerts@example.com>",
+              "type": "string"
+            },
+            {
+              "id": "e66ebd58-88fe-5d3e-a440-37b318bb7b3e",
+              "name": "cooldownMinutes",
+              "value": 60,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee439034-f171-5f66-a499-d7f07ba91522",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        20,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one alert per error event and decides whether it may be sent now.\n// Identical errors (same workflow, node and message pattern) are sent at most\n// once per cooldown window; the next alert reports how many were held back.\nconst settings = $('Settings').first().json;\nconst event = $('On workflow error').first().json;\n\nconst cooldownInput = Number(settings.cooldownMinutes);\nconst cooldownMs = (Number.isFinite(cooldownInput) && cooldownInput >= 0 ? cooldownInput : 60) * 60 * 1000;\n\nconst workflow = event.workflow || {};\nconst execution = event.execution || null;\nconst trigger = event.trigger || null;\nconst executionError = execution && execution.error ? execution.error : null;\nconst triggerError = trigger && trigger.error ? trigger.error : null;\nconst error = executionError || triggerError || {};\nconst isTriggerError = !executionError && !!triggerError;\n\nconst workflowName = String(workflow.name || 'Unknown workflow');\nconst workflowId = String(workflow.id || 'unknown');\nconst nodeName = String((error.node && error.node.name) || (execution && execution.lastNodeExecuted) || (isTriggerError ? 'Trigger' : 'Unknown node'));\nconst errorName = String(error.name || 'Error');\nconst message = String(error.message || 'No error message');\nconst executionId = execution && execution.id ? String(execution.id) : '';\nconst executionUrl = execution && typeof execution.url === 'string' && /^https?:\\/\\//.test(execution.url) ? execution.url : '';\n\n// Numbers and whitespace are normalised so \"timeout after 3012 ms\" and\n// \"timeout after 2950 ms\" count as the same problem.\nconst pattern = message.replace(/\\d+/g, '#').replace(/\\s+/g, ' ').trim().slice(0, 200);\nconst fingerprint = [workflowId, nodeName, errorName, pattern].join(' | ');\n\nconst state = $getWorkflowStaticData('global');\nif (!state.alerts || typeof state.alerts !== 'object' || Array.isArray(state.alerts)) state.alerts = {};\nconst now = Date.now();\nconst keepMs = Math.max(cooldownMs, 24 * 60 * 60 * 1000) * 2;\nfor (const [key, entry] of Object.entries(state.alerts)) {\n  const valid = entry && Number.isFinite(entry.lastSentAt) && entry.lastSentAt <= now;\n  if (!valid || now - entry.lastSentAt > keepMs) delete state.alerts[key];\n}\n\nconst previous = state.alerts[fingerprint];\nlet sendNow = true;\nlet heldBack = 0;\nif (previous && now - previous.lastSentAt < cooldownMs) {\n  previous.suppressed = (Number(previous.suppressed) || 0) + 1;\n  sendNow = false;\n} else {\n  heldBack = previous ? Number(previous.suppressed) || 0 : 0;\n  state.alerts[fingerprint] = { lastSentAt: now, suppressed: 0 };\n}\n\nconst escapeHtml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\nconst oneLine = (value) => String(value).replace(/[\\r\\n]+/g, ' ').trim();\n\nconst kind = isTriggerError ? 'Trigger or activation error' : 'Node error';\nconst subject = oneLine('[n8n] ' + workflowName + ' failed' + (isTriggerError ? ' (trigger)' : ' at ' + nodeName)).slice(0, 180);\nconst rows = [\n  ['Workflow', workflowName + ' (' + workflowId + ')'],\n  ['Type', kind],\n  ['Node', nodeName],\n  ['Error', errorName + ': ' + message.slice(0, 1000)],\n  ['Execution', executionId || 'none (trigger error)'],\n  ['Time (UTC)', new Date(now).toISOString()],\n];\nif (heldBack > 0) rows.push(['Held back', heldBack + ' identical alert(s) since the last email']);\nif (isTriggerError) rows.push(['Next step', 'Open the workflow and check that it is still active.']);\n\nconst html = '<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1f2328;max-width:640px;width:100%;box-sizing:border-box;overflow-wrap:anywhere;word-break:break-word;\">'\n  + '<p><strong>' + escapeHtml(subject) + '</strong></p>'\n  + '<table role=\"presentation\" style=\"width:100%;table-layout:fixed;border-collapse:collapse\">'\n  + rows.map(([k, v]) => '<tr><td style=\"width:28%;padding:4px 12px 4px 0;vertical-align:top;color:#57606a;overflow-wrap:anywhere;word-break:break-word;\">' + escapeHtml(k) + '</td><td style=\"padding:4px 0;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;\">' + escapeHtml(v) + '</td></tr>').join('')\n  + '</table>'\n  + (executionUrl ? '<p><a href=\"' + escapeHtml(executionUrl) + '\">Open the failed execution</a></p>' : '')\n  + '<p style=\"color:#57606a;font-size:12px\">Identical errors are sent at most once every ' + Math.round(cooldownMs / 60000) + ' minutes.</p>'\n  + '</div>';\nconst text = rows.map(([k, v]) => k + ': ' + v).join('\\n') + (executionUrl ? '\\nExecution URL: ' + executionUrl : '');\n\nreturn [{ json: { sendNow, subject, html, text, fingerprint, heldBack } }];\n"
+      },
+      "id": "70d14d16-9817-5443-98c1-be6127aca7a0",
+      "name": "Build alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        20
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1f5a3068-306a-5cbf-a432-d1e2d33486a5",
+              "leftValue": "={{ typeof $json.subject === 'string' && $json.subject.length > 0 && $json.error === undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ddfe7b91-b6b3-5611-a985-97588e94590e",
+      "name": "Alert ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        540,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d899295f-6e6e-5103-b474-6068ca368a09",
+              "leftValue": "={{ $json.sendNow === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b8305098-2da1-5f44-9d18-ef20597a9d5c",
+      "name": "Outside cooldown?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.alertFrom }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "4fc8dd0b-c7d1-5ea6-86d9-d2c038a9e549",
+      "name": "Send alert email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        -200
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "id": "123051d9-d7ac-5f1b-9ea7-036d3e1a627f",
+      "name": "Skip (cooldown active)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The alert email could not be sent. Remove the cooldown entry so the next\n// occurrence of this error is not silently suppressed.\nconst state = $getWorkflowStaticData('global');\nconst fingerprint = $('Build alert').first().json.fingerprint;\nif (state.alerts && fingerprint && Object.prototype.hasOwnProperty.call(state.alerts, fingerprint)) {\n  delete state.alerts[fingerprint];\n}\nreturn [{ json: { cooldownReleased: true, fingerprint } }];\n"
+      },
+      "id": "ae8f08cc-6918-5e73-954a-46f1653f27ad",
+      "name": "Allow next alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "The alert email could not be sent. Check the SMTP credential of 'Send alert email'."
+      },
+      "id": "0a2a3861-099e-59ab-93ee-0aed11e29af2",
+      "name": "Report send failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Settings').first().json.alertFrom }}",
+        "toEmail": "={{ $('Settings').first().json.alertTo }}",
+        "subject": "=[n8n] Error in {{ $('On workflow error').item.json.workflow?.name ?? 'unknown workflow' }} (fallback alert)",
+        "emailFormat": "text",
+        "text": "=The normal alert could not be built, so this short fallback was sent instead.\n\nWorkflow: {{ $('On workflow error').item.json.workflow?.name ?? 'unknown' }} ({{ $('On workflow error').item.json.workflow?.id ?? 'unknown' }})\nExecution: {{ $('On workflow error').item.json.execution?.id ?? 'none (trigger error)' }}\nLast node: {{ $('On workflow error').item.json.execution?.lastNodeExecuted ?? 'unknown' }}\nTime (UTC): {{ $now.toUTC().toISO() }}\n\nOpen the execution list of that workflow and check the 'Build alert' step of this error workflow. Deduplication is not active for fallback alerts.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "7ffaee9a-e747-5385-96b4-4bdb5756788e",
+      "name": "Send fallback alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        820,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Build alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert": {
+      "main": [
+        [
+          {
+            "node": "Alert ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert ready?": {
+      "main": [
+        [
+          {
+            "node": "Outside cooldown?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send fallback alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outside cooldown?": {
+      "main": [
+        [
+          {
+            "node": "Send alert email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip (cooldown active)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send alert email": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Allow next alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Allow next alert": {
+      "main": [
+        [
+          {
+            "node": "Report send failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
